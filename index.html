@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Boids (WebGPU)</title>
+    <script type="module" crossorigin src="/assets/index-4k4qVuFI.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-8tr6Iydb.css">
+  </head>
+  <body style="margin: 0; overflow: hidden">
+
+    <div id="panel">
+                    <div id="hint" style="
+  position:absolute; 
+  pointer-events:none;
+background:rgba(83, 81, 81, 0.74);
+  padding:4px 8px;
+  border-radius:4px;
+  display:none;
+"></div>
+      <h2>Settings</h2>
+      <h3>Basic</h3>
+
+      <div>
+        <label>
+          <span id="sSpeed">Speed</span>
+          <input type="range" min="0" max="0.05" id="speed" step="0.0001"/>
+        </label>
+      </div>
+      
+      <div>
+        <label>
+    <span id="sAmount">Amount</span>
+    <input type="number" id="amount" value="100" max="10000">
+  </label>
+</div>
+      <div>
+        <label>
+          <span id="sSize">Size</span>
+          <input type="range" min="0" max="5" id="size" step="0.2"/>
+        </label>
+      </div>
+      <div>
+        <label>
+          <span id="sViewRadius">View Radius</span>
+          <input type="range" min="0" max="0.5" id="view_radius" step="0.01"/>
+        </label>
+      </div>
+
+      <div>
+        <label>
+          <span id="sSepRadius">Seperation Radius</span>
+          <input type="range" min="0" max="0.5" id="sep_radius" step="0.01"/>
+        </label>
+      </div>
+
+      <div>
+        <label>
+          <span id="sCohWeight">Cohesion Weight</span>
+          <input type="range" min="0" max="0.1" id="coh_weight" step="0.002" />
+        </label>
+      </div>
+
+      <div>
+        <label>
+          <span id="sAlignWeight">Alignment Weight</span>
+          <input type="range" min="0" max="0.2" id="align_weight" step="0.002"/>
+        </label>
+      </div>
+      <div>
+        <label>
+          <span id="sSepWeight">Seperation Weight</span>
+          <input type="range" min="0" max="0.2" id="sep_weight" step="0.002"/>
+        </label>
+      </div>
+
+      <h3>Advanced</h3>
+
+      <div>
+        <label>
+          <span id="sMaxSpeed">Max. Speed   </span>
+          <input type="range" min="0" max="0.5" id="max_speed" step="0.01"/>
+        </label>
+      </div>
+
+      <div>
+        <label>
+          <span id="sMaxForce">Max. Force</span>
+          <input type="range" min="0" max="0.5" id="max_force" step="0.01"/>
+        </label>
+      </div>
+
+      <div>
+        <label>
+          <span id="sSmooth">Smoothness Factor</span>
+          <input type="range" min="0" max="0.5" id="smooth" step="0.01"/>
+        </label>
+      </div>
+      <div>
+        <label>
+          <span id="sJitter">Jitter Factor</span>
+          <input type="range" min="0" max="0.1" id="jitter" step="0.01"/>
+        </label>
+      </div>
+    </div>
+
+
+
+    <canvas style="height: 100vh; width: 100%" id="gpuCanvas"></canvas>
+  </body>
+</html>
