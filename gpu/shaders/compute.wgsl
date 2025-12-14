@@ -1,16 +1,5 @@
-//const u_Options.viewRadius      : f32 = 0.12;
-//const u_Options.separationRadius: f32 = 0.05;
 const VIEW_ANGLE_RAD   : f32 = 3.14159265 * (200.0 / 180.0); // 200 degrees
 const COS_VIEW_ANGLE   : f32 = cos(VIEW_ANGLE_RAD);
-
-//const u_Options.cohesionWeight  : f32 = 0.01;
-//const u_Options.alignmentWeight     : f32 = 0.05;
-//const u_Options.separationWeight     : f32 = 0.03;
-
-//const u_Options.maxSpeed   : f32 = 0.2;
-//const u_Options.maxForce   : f32 = 0.06;
-//const u_Options.smoothFactor           : f32 = 0.18;
-//const u_Options.jitter       : f32 = 0.02;
 
 struct Boid {
     pos          : vec2<f32>,
@@ -21,7 +10,6 @@ struct Boid {
     maxForceMul  : f32,        
     _pad         : vec2<f32>, 
 }; // 48 bytes (f32 = 4 bytes)
-
 
 struct BoidOptions {
   speed: f32,

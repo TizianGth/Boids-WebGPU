@@ -26,6 +26,7 @@ export interface BoidOptions {
   maxForce: number;
   smooth: number;
   jitter: number;
+  maxBoids: number;
 }
 
 export async function startRenderer(
@@ -44,22 +45,19 @@ export async function startRenderer(
     device,
     format: format,
     alphaMode: "opaque",
-    width: canvas.width,
-    height: canvas.height,
   });
 
   function makeProjection() {
     const aspect = canvas.width / canvas.height;
-
-    // Skaliert X entsprechend, damit keine Verzerrung entsteht
     return mat4.ortho(-aspect, aspect, -1, 1, 0.1, 100);
   }
-  const maxBoids = 10000;
-  const boidCount = options.amount;
-  let boids: Boid[] = [];
-  const aspRt = canvas.width / canvas.height;
 
-  function generateBoid() {
+  const maxBoids = options.maxBoids;
+  const boidCount = options.amount;
+  const aspRt = canvas.width / canvas.height;
+  let boids: Boid[] = [];
+
+  function getRandomBoid() {
     const pos: [number, number] = [
       (Math.random() * 2 - 1) * aspRt,
       Math.random() * 2 - 1,
@@ -85,17 +83,15 @@ export async function startRenderer(
       maxSpeedMul: maxSpeedMul,
       maxForceMul: maxForceMul,
       _padding: padding,
+    };
+  }
+
+  function fillBoids() {
+    for (let i = 0; i < boidCount; i++) {
+      boids.push(getRandomBoid());
     }
   }
-
-  function generateBoids() {
-      for (let i = 0; i < boidCount; i++) {
-        boids.push(generateBoid());
-      }
-  }
-  generateBoids();
-
-
+  fillBoids();
 
   const instanceData = new Float32Array(boids.length * 12);
   boids.forEach((b, i) => {
@@ -112,18 +108,18 @@ export async function startRenderer(
       i * 12
     );
   });
-  
 
+
+  // Creating buffers
   const timeBuffer = device.createBuffer({
-    size: 4, // f32
+    size: 4, // f32 = 4 bytes
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
   const optionsBuffer = device.createBuffer({
-    size: 20*4, // min. 80 bytes for std140 aligment!! only 12 needed
+    size: 20 * 4, // min. 20*4 bytes for std140 aligment!! only 12*4 needed
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-
 
   const aspectRatioBuffer = device.createBuffer({
     size: 4,
@@ -139,22 +135,22 @@ export async function startRenderer(
     size: 4 * 16,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  //device.queue.writeBuffer(canvasSizeBuffer, 0, new Float32Array([canvas.width,canvas.height]));
+
   const instanceBuffer = device.createBuffer({
-    size: 12*4* maxBoids, 
-  usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    size: 12 * 4 * maxBoids,
+    usage:
+      GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     mappedAtCreation: true,
   });
   new Float32Array(instanceBuffer.getMappedRange()).set(instanceData);
   instanceBuffer.unmap();
 
+  // Compute Pipeline bind group
   const computeModule = device.createShaderModule({ code: computeSrc });
   const computePipeline = device.createComputePipeline({
     layout: "auto",
     compute: { module: computeModule, entryPoint: "updateBoids" },
   });
-
-  // Compute bind group (nur für Compute-Pipeline)
   const computeBindGroup = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
     entries: [
@@ -171,19 +167,19 @@ export async function startRenderer(
         binding: 3,
         resource: { buffer: optionsBuffer },
       },
-
     ],
   });
 
-  // --- Mesh (Dreieck) ---
-  const scale = 0.3
+
+  // Mesh
+  const scale = 0.3; // prescaling; size later adjusted in vertex shader
   const meshVertices = new Float32Array([
-    0*scale,
-    -0.05*scale,
-    -0.03*scale,
-    0.03*scale,
-    0.03*scale,
-    0.03*scale,
+    0 * scale,
+    -0.05 * scale,
+    -0.03 * scale,
+    0.03 * scale,
+    0.03 * scale,
+    0.03 * scale,
   ]);
   const meshVertexBuffer = device.createBuffer({
     size: meshVertices.byteLength,
@@ -193,10 +189,9 @@ export async function startRenderer(
   new Float32Array(meshVertexBuffer.getMappedRange()).set(meshVertices);
   meshVertexBuffer.unmap();
 
+  // Shader Pipeline
   const vertexModule = device.createShaderModule({ code: vertexSrc });
   const fragmentModule = device.createShaderModule({ code: fragmentSrc });
-
-  // --- Pipeline ---
   const pipeline = device.createRenderPipeline({
     layout: "auto",
     vertex: {
@@ -231,8 +226,8 @@ export async function startRenderer(
     primitive: { topology: "triangle-list" },
   });
 
+  // share instance data between compute and render pipeline
   const bindGroupLayout = pipeline.getBindGroupLayout(0);
-
   const uniformBindGroup = device.createBindGroup({
     layout: bindGroupLayout,
     entries: [
@@ -240,7 +235,7 @@ export async function startRenderer(
         binding: 0,
         resource: { buffer: projBuffer },
       },
-            {
+      {
         binding: 1,
         resource: { buffer: scaleBuffer },
       },
@@ -248,7 +243,6 @@ export async function startRenderer(
   });
 
   function updateTime(elapsedSeconds: number) {
-    // float32 in little-endian
     if (!device) return;
     const arrayBuffer = new ArrayBuffer(4);
     new DataView(arrayBuffer).setFloat32(0, elapsedSeconds, true);
@@ -256,7 +250,7 @@ export async function startRenderer(
   }
 
   function updateBoidUniforms(options: BoidOptions) {
-      if (!device) return;
+    if (!device) return;
     const boidUniformData = new Float32Array([
       options.speed,
       options.amount,
@@ -270,79 +264,86 @@ export async function startRenderer(
       options.maxForce,
       options.smooth,
       options.jitter,
-      0,0,0,0,0,0,0,0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
     ]);
-    //12 * 4 bytes + 8+4 bytes padding
+    //12 * 4 bytes + 8*4 bytes padding
     device.queue.writeBuffer(optionsBuffer, 0, boidUniformData);
-
   }
 
+  // async possible due to it not modifing the actual gpu buffer
   async function updateBoids() {
     const newLength = options.amount;
-    if(newLength === boids.length) return;
+    if (newLength === boids.length) return;
     if (newLength < boids.length) {
-      boids = boids.slice(0,newLength);
+      boids = boids.slice(0, newLength);
     } else {
-      for(let i=0;i<newLength - boids.length;i++) {
-        boids.push(generateBoid());
+      for (let i = 0; i < newLength - boids.length; i++) {
+        boids.push(getRandomBoid());
+      }
     }
 
-
-
-  }
-
-  const newInstanceData = new Float32Array(boids.length * 12);
-boids.forEach((b, i) => {
-  newInstanceData.set([
-    ...b.position,
-    ...b.velocity,
-    ...b.color,
-    b.seed,
-    b.maxSpeedMul,
-    b.maxForceMul,
-    ...b._padding,
-  ], i * 12);
-});
-device.queue.writeBuffer(
-  instanceBuffer,
-  0,
-  newInstanceData.buffer,
-  newInstanceData.byteOffset,
-  newInstanceData.byteLength
-);
-
-    
+    const newInstanceData = new Float32Array(boids.length * 12);
+    boids.forEach((b, i) => {
+      newInstanceData.set(
+        [
+          ...b.position,
+          ...b.velocity,
+          ...b.color,
+          b.seed,
+          b.maxSpeedMul,
+          b.maxForceMul,
+          ...b._padding,
+        ],
+        i * 12
+      );
+    });
+    device.queue.writeBuffer(
+      instanceBuffer,
+      0,
+      newInstanceData.buffer,
+      newInstanceData.byteOffset,
+      newInstanceData.byteLength
+    );
   }
 
   function frame() {
     if (!device) return;
     updateBoids();
-    const now = performance.now() / 1000; // seconds
-    updateTime(now);
+    updateTime(performance.now() / 1000); // for randomness
     updateBoidUniforms(options);
-    
+
     {
-    const arrayBuffer = new ArrayBuffer(4);
-    new DataView(arrayBuffer).setFloat32(0, canvas.width / canvas.height, true);
-    device.queue.writeBuffer(aspectRatioBuffer, 0, arrayBuffer);
+      const arrayBuffer = new ArrayBuffer(4);
+      new DataView(arrayBuffer).setFloat32(
+        0,
+        canvas.width / canvas.height,
+        true
+      );
+      device.queue.writeBuffer(aspectRatioBuffer, 0, arrayBuffer);
     }
     const commandEncoder = device.createCommandEncoder();
     const projection = makeProjection();
     device.queue.writeBuffer(projBuffer, 0, projection as Float32Array);
-{
-        const arrayBuffer = new ArrayBuffer(4);
-    new DataView(arrayBuffer).setFloat32(0, options.size, true);
-        device.queue.writeBuffer(scaleBuffer, 0, arrayBuffer);
-    device.queue.writeBuffer(scaleBuffer, 0, arrayBuffer);
-}
-
+    {
+      const arrayBuffer = new ArrayBuffer(4);
+      new DataView(arrayBuffer).setFloat32(0, options.size, true);
+      device.queue.writeBuffer(scaleBuffer, 0, arrayBuffer);
+      device.queue.writeBuffer(scaleBuffer, 0, arrayBuffer);
+    }
 
     // --- Compute Pass (updatet instanceBuffer direkt) ---
     {
       const pass = commandEncoder.beginComputePass();
       pass.setPipeline(computePipeline);
       pass.setBindGroup(0, computeBindGroup);
-      pass.dispatchWorkgroups(Math.ceil(boids.length / 64));
+      pass.dispatchWorkgroups(Math.ceil(boids.length / 64)); // 64 Boids per Workgroup -> Fixed in compute shader
       pass.end();
     }
 
@@ -367,7 +368,7 @@ device.queue.writeBuffer(
     // ** Nicht nötig: computeBindGroup in Render-Pass binden -> weg damit **
     // passEncoder.setBindGroup(0, computeBindGroup); // <- entfernt
 
-    passEncoder.draw(meshVertices.length / 2, boids.length, 0, 0);
+    passEncoder.draw(meshVertices.length / 2, boids.length, 0, 0); // 6 floats per triangle => 3 vertices (=length/2)
     passEncoder.end();
 
     device.queue.submit([commandEncoder.finish()]);
