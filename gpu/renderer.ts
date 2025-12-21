@@ -111,23 +111,21 @@ export async function startRenderer(
 
 
   // Creating buffers
-  const timeBuffer = device.createBuffer({
-    size: 4, // f32 = 4 bytes
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
-
   const optionsBuffer = device.createBuffer({
-    size: 20 * 4, // min. 20*4 bytes for std140 aligment!! only 12*4 needed
+    size: 20 * 4, // min. 20*4 bytes for std140 alignment!! only 12*4 needed
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-
+  const timeBuffer = device.createBuffer({
+    size: 16, // f32 = 4 bytes => 16 bytes for alignment, could combine with other uniforms
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
   const aspectRatioBuffer = device.createBuffer({
-    size: 4,
+    size: 16,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
   const scaleBuffer = device.createBuffer({
-    size: 4,
+    size: 16,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -335,7 +333,6 @@ export async function startRenderer(
       const arrayBuffer = new ArrayBuffer(4);
       new DataView(arrayBuffer).setFloat32(0, options.size, true);
       device.queue.writeBuffer(scaleBuffer, 0, arrayBuffer);
-      device.queue.writeBuffer(scaleBuffer, 0, arrayBuffer);
     }
 
     // --- Compute Pass (updatet instanceBuffer direkt) ---
@@ -347,7 +344,6 @@ export async function startRenderer(
       pass.end();
     }
 
-    // --- Render Pass (liest instanceBuffer als Instanced Vertex Buffer) ---
     const textureView = context.getCurrentTexture().createView();
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [
@@ -364,9 +360,6 @@ export async function startRenderer(
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, meshVertexBuffer);
     passEncoder.setVertexBuffer(1, instanceBuffer);
-
-    // ** Nicht nötig: computeBindGroup in Render-Pass binden -> weg damit **
-    // passEncoder.setBindGroup(0, computeBindGroup); // <- entfernt
 
     passEncoder.draw(meshVertices.length / 2, boids.length, 0, 0); // 6 floats per triangle => 3 vertices (=length/2)
     passEncoder.end();
